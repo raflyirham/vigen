@@ -59,6 +59,9 @@ php artisan route:cache\n\
 php artisan view:cache\n\
 php artisan migrate --force\n\
 \n\
+# Start queue worker in the background\n\
+php artisan queue:work database --queue=default --tries=1 --timeout=1800 --sleep=3 --no-interaction &\n\
+\n\
 php-fpm -D\n\
 exec nginx -g "daemon off;"\n' > /usr/local/bin/start.sh \
     && chmod +x /usr/local/bin/start.sh
