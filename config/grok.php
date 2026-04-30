@@ -15,4 +15,6 @@ return [
     'queue_connection' => env('VIDEO_GENERATION_QUEUE_CONNECTION', 'database'),
     'queue_name' => env('VIDEO_GENERATION_QUEUE_NAME', 'default'),
     'auto_start_worker' => env('VIDEO_GENERATION_AUTO_START_WORKER', true),
+    'asset_disk' => env('VIDEO_GENERATION_ASSET_DISK', 'r2'),
+    'asset_fallback_disk' => env('VIDEO_GENERATION_ASSET_FALLBACK_DISK'),
 ];

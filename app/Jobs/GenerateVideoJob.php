@@ -8,6 +8,7 @@ use App\Services\VideoAssetStorage;
 use App\Services\VideoMergeService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
@@ -66,6 +67,7 @@ class GenerateVideoJob implements ShouldQueue
         $segmentPaths = [];
         $segmentResponses = [];
         $segmentUrls = [];
+        $mergedPath = null;
 
         try {
             foreach ($this->segmentPrompts($generation) as $index => $prompt) {
@@ -93,14 +95,14 @@ class GenerateVideoJob implements ShouldQueue
                 $segmentPaths[] = $path;
             }
 
-            $mergedPath = $merger->merge($segmentPaths, $generation->id);
+            $mergedPath = $merger->merge($segmentPaths, $generation->id, $assets->disk());
             $localVideoPath = $assets->storeFinalVideo($mergedPath, $generation->id, $generation->topic);
 
             if ($localVideoPath === null) {
                 throw new RuntimeException('Unable to store merged video output.');
             }
 
-            Storage::disk('local')->delete($segmentPaths);
+            Storage::disk($assets->disk())->delete($segmentPaths);
 
             $generation->update([
                 'status' => 'completed',
@@ -132,6 +134,15 @@ class GenerateVideoJob implements ShouldQueue
                 'generation_id' => $generation->id,
                 'message' => $exception->getMessage(),
             ]);
+        } finally {
+            if (is_string($mergedPath) && $mergedPath !== '') {
+                $workspace = dirname($mergedPath);
+                $mergeRoot = storage_path('app/video-merge');
+
+                if (str_starts_with(str_replace('\\', '/', $workspace), str_replace('\\', '/', $mergeRoot).'/')) {
+                    File::deleteDirectory($workspace);
+                }
+            }
         }
     }
 

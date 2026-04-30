@@ -1,0 +1,1 @@
+["-y","-f","concat","-safe","0","-i","D:\\Rafly\\Projects\\vigen\\storage\\app\/video-merge\/124-kxhGWmNS\\segments.txt","-map","0:v:0","-map","0:a:0?","-vf","fps=30,format=yuv420p","-c:v","libx264","-preset","veryfast","-crf","23","-c:a","aac","-b:a","192k","-movflags","+faststart","D:\\Rafly\\Projects\\vigen\\storage\\app\/video-merge\/124-kxhGWmNS\\merged.mp4"]

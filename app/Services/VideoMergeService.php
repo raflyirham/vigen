@@ -12,7 +12,7 @@ class VideoMergeService
     /**
      * @param  array<int, string>  $segmentPaths
      */
-    public function merge(array $segmentPaths, int $generationId): string
+    public function merge(array $segmentPaths, int $generationId, string $disk = 'local'): string
     {
         if ($segmentPaths === []) {
             throw new RuntimeException('No video segments are available to merge.');
@@ -27,7 +27,18 @@ class VideoMergeService
         $concatFile = $tempDir.DIRECTORY_SEPARATOR.'segments.txt';
         $outputPath = $tempDir.DIRECTORY_SEPARATOR.'merged.mp4';
         $lines = collect($segmentPaths)
-            ->map(fn (string $path) => "file '".$this->escapeConcatPath(Storage::disk('local')->path($path))."'")
+            ->values()
+            ->map(function (string $path, int $index) use ($disk, $tempDir): string {
+                if (! Storage::disk($disk)->exists($path)) {
+                    throw new RuntimeException("Unable to load segment ".($index + 1)." for merge.");
+                }
+
+                $extension = pathinfo($path, PATHINFO_EXTENSION) ?: 'mp4';
+                $localSegmentPath = $tempDir.DIRECTORY_SEPARATOR.'segment-'.($index + 1).'.'.$extension;
+                file_put_contents($localSegmentPath, Storage::disk($disk)->get($path));
+
+                return "file '".$this->escapeConcatPath($localSegmentPath)."'";
+            })
             ->implode(PHP_EOL);
 
         file_put_contents($concatFile, $lines.PHP_EOL);

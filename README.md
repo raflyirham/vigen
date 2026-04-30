@@ -9,6 +9,7 @@ Vigen is a Laravel + React monolith for generating video content briefs. Users c
 - searchable private generation history.
 
 If Grok credentials are not configured or the upstream call fails, Vigen still saves a usable script and storyboard fallback.
+Generated media assets are stored on Cloudflare R2 by default.
 
 ## Tech Stack
 
@@ -18,6 +19,7 @@ If Grok credentials are not configured or the upstream call fails, Vigen still s
 - Tailwind CSS
 - MySQL by default
 - Direct Grok web API integration inspired by the local `grokpi/` reference folder
+- Cloudflare R2 (S3-compatible object storage) for generated media
 
 ## Requirements
 
@@ -119,6 +121,29 @@ After changing env values, clear config cache if needed:
 php artisan config:clear
 ```
 
+### Generated Media Storage (Cloudflare R2)
+
+Set these variables to store generated image/video assets on Cloudflare R2:
+
+```env
+VIDEO_GENERATION_ASSET_DISK=r2
+VIDEO_GENERATION_ASSET_FALLBACK_DISK=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_DEFAULT_REGION=auto
+R2_BUCKET=
+R2_ENDPOINT=https://<accountid>.r2.cloudflarestorage.com
+R2_URL=
+R2_USE_PATH_STYLE_ENDPOINT=true
+```
+
+Notes:
+
+- `VIDEO_GENERATION_ASSET_DISK` should be `r2` for strict R2 storage.
+- Keep `VIDEO_GENERATION_ASSET_FALLBACK_DISK` empty to disable fallback storage.
+- `R2_URL` is optional (for custom/public URL usage).
+- The app still performs FFmpeg merging locally by staging segment files in a temporary workspace before uploading the merged output back to the configured asset disk.
+
 ## Running Locally
 
 Run the Laravel server:
@@ -154,7 +179,7 @@ Register a user, then go to:
 - Fallback output: saves script/storyboard when Grok is unavailable.
 - History: search, filter, preview, delete.
 - Export: download script as `.txt`.
-- Video download: downloads/proxies available generated video files, or redirects to the upstream URL when needed.
+- Video download/preview: serves stored media from the configured asset disk (R2 by default), or falls back to upstream URL when needed.
 
 ## Useful Routes
 
@@ -190,7 +215,8 @@ The feature tests cover:
 - Grok success with a mocked service,
 - script/storyboard fallback,
 - user ownership checks,
-- script export.
+- script export,
+- merge compatibility for segments stored on non-local disks (for example R2).
 
 ## Project Structure
 
@@ -256,6 +282,28 @@ php artisan config:clear
 ```
 
 If Grok rejects the request, the app saves the fallback and stores the error message on the generation preview.
+
+### R2 storage errors (write/read/check existence)
+
+If you see errors like `UnableToCheckFileExistence` or media cannot be downloaded:
+
+1. Verify R2 env values (`R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_ENDPOINT`).
+2. Ensure `VIDEO_GENERATION_ASSET_DISK=r2`.
+3. Clear cached config:
+
+```bash
+php artisan config:clear
+```
+
+4. Retry generation and inspect `storage/logs/laravel.log` for asset disk warnings.
+
+### FFmpeg merge cannot find segment files
+
+The merge step requires local file paths. Vigen stages segment files from the configured disk (including R2) into a local temporary merge directory before invoking FFmpeg. If merge still fails:
+
+- confirm FFmpeg is installed and reachable via `FFMPEG_BINARY`,
+- verify segment uploads succeeded on the configured asset disk,
+- check `storage/logs/laravel.log` for segment load and merge errors.
 
 ### Vite cannot find npm or Node version is rejected
 

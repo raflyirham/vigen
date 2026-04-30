@@ -31,6 +31,29 @@ class VideoMergeServiceTest extends TestCase
         $this->assertNotContains('-an', $arguments);
     }
 
+    public function test_merge_stages_segments_from_configured_disk_before_running_ffmpeg(): void
+    {
+        Storage::fake('r2');
+        Storage::disk('r2')->put('generated-assets/one.mp4', 'segment-one');
+        Storage::disk('r2')->put('generated-assets/two.mp4', 'segment-two');
+
+        [$binary, $argumentsPath] = $this->fakeFfmpegBinary();
+        config(['grok.ffmpeg_binary' => $binary]);
+
+        $outputPath = app(VideoMergeService::class)->merge([
+            'generated-assets/one.mp4',
+            'generated-assets/two.mp4',
+        ], 124, 'r2');
+
+        $arguments = json_decode(file_get_contents($argumentsPath), true, flags: JSON_THROW_ON_ERROR);
+        $concatFile = $arguments[array_search('-i', $arguments, true) + 1];
+
+        $this->assertFileExists($outputPath);
+        $this->assertFileExists($concatFile);
+        $this->assertStringContainsString('segment-1.mp4', file_get_contents($concatFile));
+        $this->assertStringContainsString('segment-2.mp4', file_get_contents($concatFile));
+    }
+
     /**
      * @return array{0: string, 1: string}
      */

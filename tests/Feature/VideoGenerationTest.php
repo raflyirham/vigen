@@ -142,7 +142,7 @@ class VideoGenerationTest extends TestCase
         $merger = Mockery::mock(VideoMergeService::class);
         $merger->shouldReceive('merge')
             ->once()
-            ->with(Mockery::on(fn (array $paths): bool => count($paths) === 3), $generation->id)
+            ->with(Mockery::on(fn (array $paths): bool => count($paths) === 3), $generation->id, 'local')
             ->andReturnUsing(function () {
                 $path = storage_path('app/test-merged.mp4');
                 file_put_contents($path, 'merged-video-bytes');
@@ -218,7 +218,7 @@ class VideoGenerationTest extends TestCase
         $merger = Mockery::mock(VideoMergeService::class);
         $merger->shouldReceive('merge')
             ->once()
-            ->with(Mockery::on(fn (array $paths): bool => count($paths) === 6), $generation->id)
+            ->with(Mockery::on(fn (array $paths): bool => count($paths) === 6), $generation->id, 'local')
             ->andReturnUsing(function () {
                 $path = storage_path('app/test-merged-60.mp4');
                 file_put_contents($path, 'merged-video-bytes');

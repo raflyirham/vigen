@@ -11,6 +11,7 @@ use App\Services\VideoGenerationDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -127,9 +128,10 @@ class VideoGenerationController extends Controller
     public function destroy(Request $request, VideoGeneration $generation): RedirectResponse
     {
         $this->authorizeGeneration($request, $generation);
+        $assetDisk = app(VideoAssetStorage::class)->disk();
 
         if ($generation->local_video_path) {
-            Storage::disk('local')->delete($generation->local_video_path);
+            Storage::disk($assetDisk)->delete($generation->local_video_path);
         }
 
         $generation->delete();
@@ -153,15 +155,27 @@ class VideoGenerationController extends Controller
     public function video(Request $request, VideoGeneration $generation, VideoAssetStorage $assets): HttpResponse
     {
         $this->authorizeGeneration($request, $generation);
+        $assetDisk = $assets->disk();
 
-        if (! $generation->local_video_path || ! Storage::disk('local')->exists($generation->local_video_path)) {
-            abort(404, 'No local video is available for this generation.');
+        if (! $generation->local_video_path) {
+            abort(404, 'No stored video is available for this generation.');
         }
 
-        return Storage::disk('local')->response(
-            $generation->local_video_path,
-            $assets->assetFileName($generation),
-        );
+        try {
+            return Storage::disk($assetDisk)->response(
+                $generation->local_video_path,
+                $assets->assetFileName($generation),
+            );
+        } catch (\Throwable $exception) {
+            Log::warning('Unable to stream stored video from asset disk.', [
+                'generation_id' => $generation->id,
+                'disk' => $assetDisk,
+                'path' => $generation->local_video_path,
+                'message' => $exception->getMessage(),
+            ]);
+
+            abort(404, 'No stored video is available for this generation.');
+        }
     }
 
     public function downloadVideo(
@@ -171,12 +185,22 @@ class VideoGenerationController extends Controller
         VideoAssetStorage $assets,
     ): HttpResponse|RedirectResponse {
         $this->authorizeGeneration($request, $generation);
+        $assetDisk = $assets->disk();
 
-        if ($generation->local_video_path && Storage::disk('local')->exists($generation->local_video_path)) {
-            return Storage::disk('local')->download(
-                $generation->local_video_path,
-                $assets->assetFileName($generation),
-            );
+        if ($generation->local_video_path) {
+            try {
+                return Storage::disk($assetDisk)->download(
+                    $generation->local_video_path,
+                    $assets->assetFileName($generation),
+                );
+            } catch (\Throwable $exception) {
+                Log::warning('Unable to download stored video from asset disk; falling back to source URL.', [
+                    'generation_id' => $generation->id,
+                    'disk' => $assetDisk,
+                    'path' => $generation->local_video_path,
+                    'message' => $exception->getMessage(),
+                ]);
+            }
         }
 
         if (! $generation->video_url) {
@@ -198,7 +222,7 @@ class VideoGenerationController extends Controller
         if ($path !== null) {
             $generation->update(['local_video_path' => $path]);
 
-            return Storage::disk('local')->download(
+            return Storage::disk($assetDisk)->download(
                 $path,
                 $assets->assetFileName($generation->fresh()),
             );
@@ -242,6 +266,9 @@ class VideoGenerationController extends Controller
      */
     private function detail(VideoGeneration $generation): array
     {
+        $assets = app(VideoAssetStorage::class);
+        $previewUrl = $assets->previewUrl($generation);
+
         return [
             ...$this->summary($generation),
             'keywords' => $generation->keywords,
@@ -251,9 +278,9 @@ class VideoGenerationController extends Controller
             'script' => $generation->script,
             'storyboard' => $generation->storyboard,
             'video_url' => $generation->video_url,
-            'preview_url' => $generation->local_video_path
+            'preview_url' => $previewUrl ?? ($generation->local_video_path
                 ? route('generations.video', $generation)
-                : $generation->video_url,
+                : $generation->video_url),
             'error_message' => $generation->error_message,
         ];
     }
