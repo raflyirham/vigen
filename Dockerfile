@@ -21,11 +21,6 @@ RUN composer install --no-dev --optimize-autoloader
 # Install & build frontend (React via Vite)
 RUN npm install && npm run build
 
-# Laravel optimizations
-RUN php artisan config:cache \
- && php artisan route:cache \
- && php artisan view:cache
-
 # Runtime entrypoint that maps Nginx to $PORT and serves Laravel public/
 RUN printf '#!/bin/sh\n\
 set -e\n\
@@ -50,6 +45,12 @@ server {\n\
     }\n\
 }\n\
 EOF\n\
+\n\
+# Run Laravel bootstrap steps now that env vars are available\n\
+php artisan config:cache\n\
+php artisan route:cache\n\
+php artisan view:cache\n\
+php artisan migrate --force\n\
 \n\
 php-fpm -D\n\
 exec nginx -g "daemon off;"\n' > /usr/local/bin/start.sh \
