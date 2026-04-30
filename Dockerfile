@@ -5,6 +5,7 @@ WORKDIR /app
 # Install system deps + Node + FFmpeg + Nginx
 RUN apt-get update && apt-get install -y \
     git unzip curl libzip-dev zip nodejs npm ffmpeg nginx \
+    libpq-dev \
     && docker-php-ext-install pdo pdo_pgsql zip \
     && rm -rf /var/lib/apt/lists/*
 
