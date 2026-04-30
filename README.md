@@ -17,7 +17,7 @@ Generated media assets are stored on Cloudflare R2 by default.
 - Laravel Breeze authentication
 - Inertia.js + React 18
 - Tailwind CSS
-- MySQL by default
+- PostgreSQL by default
 - Direct Grok web API integration inspired by the local `grokpi/` reference folder
 - Cloudflare R2 (S3-compatible object storage) for generated media
 
@@ -27,8 +27,8 @@ Generated media assets are stored on Cloudflare R2 by default.
 - Composer
 - Node.js 20.19+ or 22.12+
 - npm
-- MySQL 8+ or MariaDB 10.6+
-- PHP `pdo_mysql` extension
+- PostgreSQL 15+
+- PHP `pdo_pgsql` extension
 
 > The app may build with older Node 22 versions, but Vite warns unless Node is `20.19+` or `22.12+`.
 
@@ -41,19 +41,19 @@ cp .env.example .env
 php artisan key:generate
 ```
 
-Create a MySQL database:
+Create a PostgreSQL database:
 
 ```sql
-CREATE DATABASE vigen CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE vigen;
 ```
 
-If you prefer the MySQL CLI:
+If you prefer the PostgreSQL CLI:
 
 ```bash
-mysql -u root -p -e "CREATE DATABASE vigen CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+psql -U postgres -h 127.0.0.1 -p 5432 -c "CREATE DATABASE vigen;"
 ```
 
-Update `.env` with your local MySQL credentials, then run migrations.
+Update `.env` with your local PostgreSQL credentials, then run migrations.
 
 Run migrations:
 
@@ -69,14 +69,14 @@ npm run build
 
 ## Environment Setup
 
-The default `.env.example` uses MySQL:
+The default `.env.example` uses PostgreSQL:
 
 ```env
-DB_CONNECTION=mysql
+DB_CONNECTION=pgsql
 DB_HOST=127.0.0.1
-DB_PORT=3306
+DB_PORT=5432
 DB_DATABASE=vigen
-DB_USERNAME=root
+DB_USERNAME=postgres
 DB_PASSWORD=
 SESSION_DRIVER=database
 QUEUE_CONNECTION=database
@@ -249,21 +249,22 @@ php artisan key:generate
 
 ### Database table not found
 
-Confirm the MySQL database exists and your `.env` credentials are correct, then run:
+Confirm the PostgreSQL database exists and your `.env` credentials are correct, then run:
 
 ```bash
 php artisan migrate
 ```
 
-### Could not connect to MySQL
+### Could not connect to PostgreSQL
 
-Check that MySQL is running and that `.env` matches your local setup:
+Check that PostgreSQL is running and that `.env` matches your local setup:
 
 ```env
+DB_CONNECTION=pgsql
 DB_HOST=127.0.0.1
-DB_PORT=3306
+DB_PORT=5432
 DB_DATABASE=vigen
-DB_USERNAME=root
+DB_USERNAME=postgres
 DB_PASSWORD=
 ```
 
