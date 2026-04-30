@@ -79,6 +79,57 @@ class VideoAssetStorage
         return Str::slug($generation->topic ?: 'generated-video').'.'.$extension;
     }
 
+    public function scriptFileName(VideoGeneration $generation): string
+    {
+        return Str::slug($generation->topic ?: 'video-script').'-script.txt';
+    }
+
+    public function storeScript(VideoGeneration $generation): ?string
+    {
+        if (blank($generation->script)) {
+            return null;
+        }
+
+        $path = 'generated-scripts/'.now()->format('Y/m').'/'.$generation->id.'-'
+            .Str::slug($generation->topic ?: 'video-script').'-script.txt';
+
+        return $this->storeContents($path, $generation->script) ? $path : null;
+    }
+
+    public function scriptDownloadUrl(VideoGeneration $generation): ?string
+    {
+        if (! $generation->script_path) {
+            return null;
+        }
+
+        $disk = $this->disk();
+        $driver = (string) config("filesystems.disks.{$disk}.driver", '');
+
+        try {
+            if ($driver === 's3') {
+                return Storage::disk($disk)->temporaryUrl(
+                    $generation->script_path,
+                    now()->addMinutes(30),
+                    [
+                        'ResponseContentType' => 'text/plain; charset=UTF-8',
+                        'ResponseContentDisposition' => 'attachment; filename="'.$this->scriptFileName($generation).'"',
+                    ],
+                );
+            }
+
+            return Storage::disk($disk)->url($generation->script_path);
+        } catch (\Throwable $exception) {
+            Log::warning('Unable to build script download URL from asset disk.', [
+                'generation_id' => $generation->id,
+                'disk' => $disk,
+                'path' => $generation->script_path,
+                'message' => $exception->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
     public function previewUrl(VideoGeneration $generation): ?string
     {
         if (! $generation->local_video_path) {

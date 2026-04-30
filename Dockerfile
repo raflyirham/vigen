@@ -21,6 +21,13 @@ RUN composer install --no-dev --optimize-autoloader
 # Install & build frontend (React via Vite)
 RUN npm install && npm run build
 
+# Ensure storage and cache directories exist and are writable
+RUN mkdir -p storage/framework/{sessions,views,cache} \
+    storage/logs \
+    bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache \
+    && chown -R www-data:www-data storage bootstrap/cache
+
 # Runtime entrypoint that maps Nginx to $PORT and serves Laravel public/
 RUN printf '#!/bin/sh\n\
 set -e\n\

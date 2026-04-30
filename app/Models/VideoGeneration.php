@@ -25,6 +25,7 @@ class VideoGeneration extends Model
         'status',
         'composed_prompt',
         'script',
+        'script_path',
         'storyboard',
         'video_url',
         'local_video_path',

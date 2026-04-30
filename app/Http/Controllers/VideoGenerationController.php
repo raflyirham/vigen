@@ -78,6 +78,7 @@ class VideoGenerationController extends Controller
         StoreVideoGenerationRequest $request,
         StoryboardComposer $composer,
         VideoGenerationDispatcher $dispatcher,
+        VideoAssetStorage $assets,
     ): RedirectResponse {
         $input = $request->validated();
         $requestedDuration = (int) $input['duration'];
@@ -99,6 +100,12 @@ class VideoGenerationController extends Controller
             'script' => $content['script'],
             'storyboard' => $content['storyboard'],
         ]);
+
+        $scriptPath = $assets->storeScript($generation);
+
+        if ($scriptPath !== null) {
+            $generation->update(['script_path' => $scriptPath]);
+        }
 
         $dispatcher->dispatch($generation);
 
@@ -134,6 +141,10 @@ class VideoGenerationController extends Controller
             Storage::disk($assetDisk)->delete($generation->local_video_path);
         }
 
+        if ($generation->script_path) {
+            Storage::disk($assetDisk)->delete($generation->script_path);
+        }
+
         $generation->delete();
 
         return redirect()
@@ -141,12 +152,30 @@ class VideoGenerationController extends Controller
             ->with('success', 'Generation deleted.');
     }
 
-    public function exportScript(Request $request, VideoGeneration $generation): HttpResponse
+    public function exportScript(Request $request, VideoGeneration $generation, VideoAssetStorage $assets): HttpResponse|RedirectResponse
     {
         $this->authorizeGeneration($request, $generation);
-        $fileName = Str::slug($generation->topic ?: 'video-script').'-script.txt';
 
-        return response($generation->script, 200, [
+        // If the script isn't on R2 yet, upload it now (handles legacy records).
+        if (! $generation->script_path && filled($generation->script)) {
+            $scriptPath = $assets->storeScript($generation);
+
+            if ($scriptPath !== null) {
+                $generation->update(['script_path' => $scriptPath]);
+                $generation->refresh();
+            }
+        }
+
+        $downloadUrl = $assets->scriptDownloadUrl($generation);
+
+        if ($downloadUrl !== null) {
+            return redirect()->away($downloadUrl);
+        }
+
+        // Fallback: serve directly from the database value.
+        $fileName = $assets->scriptFileName($generation);
+
+        return response($generation->script ?? '', 200, [
             'Content-Type' => 'text/plain; charset=UTF-8',
             'Content-Disposition' => "attachment; filename=\"{$fileName}\"",
         ]);
